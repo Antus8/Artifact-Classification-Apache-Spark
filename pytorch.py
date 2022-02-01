@@ -65,4 +65,21 @@ for img_path in stairs_paths:
 outfile = 'dataset.npz'
 np.savez(outfile, **dataset_feature_vectors)
 
+'''
+# Using PyTorch Cosine Similarity
+cos = nn.CosineSimilarity(dim=1, eps=1e-6)
+door_sim = cos(npzfile["door"][0], npzfile["door"][1])
+face_sim = cos(npzfile["face"][0], npzfile["face"][0])
+stairs_sim = cos(npzfile["stairs"][0], npzfile["stairs"][0])
+print('\nCosine similarity DOOR FACE: {0}\n'.format(door_sim ))
+print('\nCosine similarity DOOR STAIRS: {0}\n'.format(face_sim))
+print('\nCosine similarity FACE STAIRS: {0}\n'.format(stairs_sim ))
 
+
+door_face_sim = cos(npzfile["door"][0].unsqueeze(0), npzfile["face"][0].unsqueeze(0))
+door_stairs_sim = cos(npzfile["door"][0].unsqueeze(0), npzfile["stairs"][0].unsqueeze(0))
+face_stairs_sim = cos(npzfile["face"][0].unsqueeze(0), npzfile["stairs"][0].unsqueeze(0))
+print('\nCosine similarity DOOR FACE: {0}\n'.format(door_face_sim ))
+print('\nCosine similarity DOOR STAIRS: {0}\n'.format(door_stairs_sim))
+print('\nCosine similarity FACE STAIRS: {0}\n'.format(face_stairs_sim ))
+'''
