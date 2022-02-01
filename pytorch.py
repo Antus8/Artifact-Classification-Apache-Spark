@@ -1,17 +1,22 @@
 import torch
 import glob
+import json
+import numpy as np
 import torch.nn as nn
 from PIL import Image
 import torchvision.models as models
 from torch.autograd import Variable
+from pyspark.ml.linalg import Vectors
 import torchvision.transforms as transforms
 
-doors_feature_vectors = {}
-faces_feature_vectors = {}
-stairs_feature_vectors = {}
+
+dataset_feature_vectors = {"door":[], "face" : [], "stairs" : []}
 
 doors_paths = glob.glob("/home/antonello/Scrivania/Dataset/Doors/*")
-print(doors_paths)
+faces_paths = glob.glob("/home/antonello/Scrivania/Dataset/Faces/*")
+stairs_paths = glob.glob("/home/antonello/Scrivania/Dataset/Stairs/*")
+
+# output_file = open("output_doors.txt", "w")
 
 # Load the pretrained model
 model = models.resnet18(pretrained=True)
@@ -41,32 +46,23 @@ def get_vector(image_name):
     h.remove() # Detach copy function from the layer
     
     return img_feature_vector
-    
 
+for img_path in doors_paths:
+    image_feature_vector = get_vector(img_path)
+    np_arr = image_feature_vector.cpu().detach().numpy()
+    dataset_feature_vectors["door"].append(np_arr)
 
-'''
-pic_one = "/home/antonello/Scrivania/Dataset/Doors/Door0007.png"
-pic_two = "/home/antonello/Scrivania/Dataset/Faces/1_0_0_20161219190045155.jpg.chip.jpg"
-pic_three = "/home/antonello/Scrivania/Dataset/Stairs/829365.jpg"
+for img_path in faces_paths:
+    image_feature_vector = get_vector(img_path)
+    np_arr = image_feature_vector.cpu().detach().numpy()
+    dataset_feature_vectors["face"].append(np_arr)
 
-pic_one_vector = get_vector(pic_one)
-pic_two_vector = get_vector(pic_two)
-pic_three_vector = get_vector(pic_three)
+for img_path in stairs_paths:
+    image_feature_vector = get_vector(img_path)
+    np_arr = image_feature_vector.cpu().detach().numpy()
+    dataset_feature_vectors["stairs"].append(np_arr)    
 
-print("VECTORS!")
-print(pic_one_vector)
-print("len")
-print(len(pic_one_vector))
-print(pic_two_vector)
-print("END VECTORS!")
-
-# Using PyTorch Cosine Similarity
-cos = nn.CosineSimilarity(dim=1, eps=1e-6)
-door_face_sim = cos(pic_one_vector.unsqueeze(0), pic_two_vector.unsqueeze(0))
-door_stairs_sim = cos(pic_one_vector.unsqueeze(0), pic_three_vector.unsqueeze(0))
-stairs_face_sim = cos(pic_two_vector.unsqueeze(0), pic_three_vector.unsqueeze(0))'''
-# print('\nCosine similarity DOOR FACE: {0}\n'.format(door_face_sim ))
-# print('\nCosine similarity DOOR STAIRS: {0}\n'.format(door_stairs_sim))
-# print('\nCosine similarity FACE STAIRS: {0}\n'.format(stairs_face_sim ))
+outfile = 'dataset.npz'
+np.savez(outfile, **dataset_feature_vectors)
 
 
