@@ -1,1 +1,1 @@
-# Artifatc-Classification-Apache-Spark
+# Artifact-Classification-Apache-Spark
