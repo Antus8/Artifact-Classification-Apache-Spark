@@ -57,7 +57,7 @@ labelIndexer = StringIndexer(inputCol="label", outputCol="label_indexed").fit(df
 
 (trainingData, testData) = df.randomSplit([0.7, 0.3])
 
-rf = RandomForestClassifier(labelCol="label_indexed", featuresCol="features", numTrees=10)
+rf = RandomForestClassifier(labelCol="label_indexed", featuresCol="vector_features", numTrees=10)
 
 labelConverter = IndexToString(inputCol="prediction", outputCol="predictedLabel",
                                labels=labelIndexer.labels)
