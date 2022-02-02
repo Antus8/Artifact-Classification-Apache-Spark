@@ -10,11 +10,12 @@ from pyspark.ml.linalg import Vectors
 import torchvision.transforms as transforms
 
 
-dataset_feature_vectors = {"door":[], "face" : [], "stairs" : []}
+dataset_feature_vectors = {"door":[], "face" : [], "stairs" : [], "pedestrian" : [],}
 
-doors_paths = glob.glob("/home/antonello/Scrivania/Dataset/Doors/*")
-faces_paths = glob.glob("/home/antonello/Scrivania/Dataset/Faces/*")
-stairs_paths = glob.glob("/home/antonello/Scrivania/Dataset/Stairs/*")
+doors_paths = glob.glob("/home/antonello/Scrivania/Dataset_complete/Doors/*")
+faces_paths = glob.glob("/home/antonello/Scrivania/Dataset_complete/Faces/*")
+stairs_paths = glob.glob("/home/antonello/Scrivania/Dataset_complete/Stairs/*")
+pedestrian_paths = glob.glob("/home/antonello/Scrivania/Dataset_complete/Pedestrians/*")
 
 # output_file = open("output_doors.txt", "w")
 
@@ -39,28 +40,36 @@ def get_vector(image_name):
     
     def copy_data(m, i, o):
     	img_feature_vector.copy_(o.data.reshape(o.data.size(1)))
-           
+    
     h = layer.register_forward_hook(copy_data)    
     
     model(t_img)    
     h.remove() # Detach copy function from the layer
     
     return img_feature_vector
-
+print("Processing doors")
 for img_path in doors_paths:
     image_feature_vector = get_vector(img_path)
     np_arr = image_feature_vector.cpu().detach().numpy()
     dataset_feature_vectors["door"].append(np_arr)
 
+print("Processing faces")
 for img_path in faces_paths:
     image_feature_vector = get_vector(img_path)
     np_arr = image_feature_vector.cpu().detach().numpy()
     dataset_feature_vectors["face"].append(np_arr)
 
+print("Processing stairs")
 for img_path in stairs_paths:
     image_feature_vector = get_vector(img_path)
     np_arr = image_feature_vector.cpu().detach().numpy()
-    dataset_feature_vectors["stairs"].append(np_arr)    
+    dataset_feature_vectors["stairs"].append(np_arr)
+
+print("Processing pedestrians")
+for img_path in pedestrian_paths:
+    image_feature_vector = get_vector(img_path)
+    np_arr = image_feature_vector.cpu().detach().numpy()
+    dataset_feature_vectors["pedestrian"].append(np_arr)   
 
 outfile = 'dataset.npz'
 np.savez(outfile, **dataset_feature_vectors)

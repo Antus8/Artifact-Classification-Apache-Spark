@@ -18,25 +18,16 @@ from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml.feature import IndexToString, StringIndexer, VectorIndexer
 from pyspark.sql.types import StringType, ArrayType,StructType,StructField, FloatType
 
-spark = SparkSession.builder.appName('Artifact Classification').getOrCreate()
-outfile = '/home/antonello/spark-3.2.0-bin-hadoop3.2/Classification/dataset.npz'
+# spark = SparkSession.builder.appName('Artifact Classification').getOrCreate()
+outfile = '/home/antonello/Scrivania/Artifact-Classification-Apache-Spark/dataset.npz'
 
 npzfile = np.load(outfile)
 
 dataset = []
-    	
+
 for key in npzfile.files:
     for feature_vector in npzfile[key]:
     	dataset.append({"label" : key, "features" : feature_vector.tolist()})
-
-print(len(dataset))
-
-'''
-Solo pandas riesce a leggere bene i numpy arrays ma poi ci sono problemi con il modello di ML
-Quindi convertiamo i numpy arrays in liste, così spark riesce a inferire lo schema
-df = pd.DataFrame(dataset)
-print(df)
-'''
 
 df = spark.createDataFrame(dataset)
 df.printSchema()
@@ -48,7 +39,13 @@ df = df.select(
 )
 
 print("ML ALGORITHM RANDOM FOREST CLASSIFIER")
+
 '''
+Solo pandas riesce a leggere bene i numpy arrays ma poi ci sono problemi con il modello di ML
+Quindi convertiamo i numpy arrays in liste, così spark riesce a inferire lo schema
+df = pd.DataFrame(dataset)
+print(df)
+
 indexer = StringIndexer(inputCol="label", outputCol="label_indexed")
 indexed_df = indexer.fit(df).transform(df)
 indexed.show()
