@@ -11,6 +11,7 @@ from pyspark.sql import SparkSession
 from pyspark.ml.linalg import Vectors
 from pyspark import SparkContext,SparkConf
 import torchvision.transforms as transforms
+from pyspark.ml.feature import StringIndexer
 from pyspark.sql.types import StringType, ArrayType,StructType,StructField, FloatType
 
 
@@ -23,12 +24,24 @@ dataset = []
     	
 for key in npzfile.files:
     for feature_vector in npzfile[key]:
-    	dataset.append({"label" : key, "features" : feature_vector})
+    	dataset.append({"label" : key, "features" : feature_vector.tolist()})
 
 print(len(dataset))
 
+'''
 df = pd.DataFrame(dataset)
 print(df)
+'''
+
+df = spark.createDataFrame(dataset)
+df.printSchema()
+print("Indexing")
+
+indexer = StringIndexer(inputCol="label", outputCol="label_indexed")
+indexed = indexer.fit(df).transform(df)
+indexed.show()
+
+
 
 spark.stop()
 
