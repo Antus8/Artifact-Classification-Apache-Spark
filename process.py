@@ -16,7 +16,7 @@ from pyspark.sql.functions import udf
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml.feature import IndexToString, StringIndexer, VectorIndexer
 from pyspark.sql.types import StringType, ArrayType,StructType,StructField, FloatType
-from pyspark.ml.classification import RandomForestClassifier, GBTClassifier, LogisticRegression
+from pyspark.ml.classification import RandomForestClassifier, GBTClassifier, LogisticRegression, OneVsRest
 
 spark = SparkSession.builder.appName('Artifact Classification').getOrCreate()
 outfile = '/home/antonello/Scrivania/Artifact-Classification-Apache-Spark/dataset.npz'
@@ -81,6 +81,28 @@ rf_accuracy = evaluator.evaluate(predictions)
 
 '''
 ###############################
+GRADIENT BOOSTED TREE
+###############################
+
+Only supports BINARY classification
+
+gbt = GBTClassifier(labelCol="label_indexed", featuresCol="vector_features", maxIter=10)
+pipeline = Pipeline(stages=[labelIndexer, gbt, labelConverter])
+
+model = pipeline.fit(trainingData)
+
+predictions = model.transform(testData)
+
+predictions.show(50)
+
+
+evaluator = MulticlassClassificationEvaluator(
+    labelCol="label_indexed", predictionCol="prediction", metricName="accuracy")
+gbt_accuracy = evaluator.evaluate(predictions)
+'''
+
+'''
+###############################
 MULTINOMIAL LOGISTIC REGRESSION
 ###############################
 '''
@@ -107,8 +129,25 @@ evaluator = MulticlassClassificationEvaluator(
     labelCol="label", predictionCol="prediction", metricName="accuracy")
 lr_accuracy = evaluator.evaluate(predictions)
 
+'''
+###############################
+ONE VS ALL
+###############################
+'''
+lr = LogisticRegression(maxIter=10, tol=1E-6, fitIntercept=True)
+ovr = OneVsRest(classifier=lr)
+
+pipeline = Pipeline(stages=[labelIndexer, ovr, labelConverter])
+model = pipeline.fit(trainingData)
+predictions = model.transform(testData)
+
+evaluator = MulticlassClassificationEvaluator(
+    labelCol="label", predictionCol="prediction", metricName="accuracy")
+ova_accuracy = evaluator.evaluate(predictions)
+
 print("Random forest accuracy is: " + str(rf_accuracy))
 print("Logistic regression accuracy is: " + str(lr_accuracy))
+print("One vs All accuracy is: " + str(ova_accuracy))
 
 
 spark.stop()
