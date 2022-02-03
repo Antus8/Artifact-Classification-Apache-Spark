@@ -1,3 +1,4 @@
+import cv2
 import torch
 import glob
 import json
@@ -18,103 +19,112 @@ from pyspark.ml.feature import IndexToString, StringIndexer, VectorIndexer
 from pyspark.sql.types import StringType, ArrayType,StructType,StructField, FloatType
 from pyspark.ml.classification import RandomForestClassifier, GBTClassifier, LogisticRegression, OneVsRest
 
-spark = SparkSession.builder.appName('Artifact Classification').getOrCreate()
-outfile = '/home/antonello/Scrivania/Artifact-Classification-Apache-Spark/dataset.npz'
 
-npzfile = np.load(outfile)
+def main():
 
-dataset = []
+	spark = SparkSession.builder.appName('Artifact Classification').getOrCreate()
+	outfile = '/home/antonello/Scrivania/Artifact-Classification-Apache-Spark/dataset.npz'
 
-for key in npzfile.files:
-    for feature_vector in npzfile[key]:
-    	dataset.append({"label" : key, "features" : feature_vector.tolist()})
+	npzfile = np.load(outfile)
 
-df = spark.createDataFrame(dataset)
-# df.printSchema()
+	dataset = []
 
-list_to_vector_udf = udf(lambda l: Vectors.dense(l), VectorUDT())
-df = df.select(
-    df["label"], 
-    list_to_vector_udf(df["features"]).alias("vector_features")
-)
+	for key in npzfile.files:
+	    for feature_vector in npzfile[key]:
+	    	dataset.append({"label" : key, "features" : feature_vector.tolist()})
 
-'''
-###############################
-RANDOM FOREST CLASSIFIER
-###############################
-'''
+	df = spark.createDataFrame(dataset)
+	# df.printSchema()
 
-labelIndexer = StringIndexer(inputCol="label", outputCol="label_indexed").fit(df)
+	list_to_vector_udf = udf(lambda l: Vectors.dense(l), VectorUDT())
+	df = df.select(
+	    df["label"], 
+	    list_to_vector_udf(df["features"]).alias("vector_features")
+	)
 
-(trainingData, testData) = df.randomSplit([0.7, 0.3])
+	'''
+	###############################
+	RANDOM FOREST CLASSIFIER
+	###############################
+	'''
 
-rf = RandomForestClassifier(labelCol="label_indexed", featuresCol="vector_features", numTrees=10)
+	labelIndexer = StringIndexer(inputCol="label", outputCol="label_indexed").fit(df)
 
-labelConverter = IndexToString(inputCol="prediction", outputCol="predictedLabel",
-                               labels=labelIndexer.labels)
-                               
-pipeline = Pipeline(stages=[labelIndexer, rf, labelConverter])
+	(trainingData, testData) = df.randomSplit([0.7, 0.3])
 
-model = pipeline.fit(trainingData)
+	rf = RandomForestClassifier(labelCol="label_indexed", featuresCol="vector_features", numTrees=10)
 
-predictions = model.transform(testData)
+	labelConverter = IndexToString(inputCol="prediction", outputCol="predictedLabel",
+		                       labels=labelIndexer.labels)
+		                       
+	pipeline = Pipeline(stages=[labelIndexer, rf, labelConverter])
 
-predictions.show(50)
+	rf_model = pipeline.fit(trainingData)
 
+	predictions = rf_model.transform(testData)
 
-evaluator = MulticlassClassificationEvaluator(
-    labelCol="label_indexed", predictionCol="prediction", metricName="accuracy")
-rf_accuracy = evaluator.evaluate(predictions)
+	predictions.show(50)
 
 
-'''
-###############################
-MULTINOMIAL LOGISTIC REGRESSION
-###############################
-'''
-
-df = df.select(
-    df["label"].alias("string_labels"), 
-    df["vector_features"].alias("features")
-)
-
-labelIndexer = StringIndexer(inputCol="string_labels", outputCol="label").fit(df)
-(trainingData, testData) = df.randomSplit([0.7, 0.3])
-
-lr = LogisticRegression(maxIter=10, regParam=0.3, elasticNetParam=0.8)
-
-labelConverter = IndexToString(inputCol="prediction", outputCol="predictedLabel",
-                               labels=labelIndexer.labels)
-pipeline = Pipeline(stages=[labelIndexer, lr, labelConverter])
-model = pipeline.fit(trainingData)
-predictions = model.transform(testData)
-
-predictions.show(50)
-
-evaluator = MulticlassClassificationEvaluator(
-    labelCol="label", predictionCol="prediction", metricName="accuracy")
-lr_accuracy = evaluator.evaluate(predictions)
-
-'''
-###############################
-ONE VS ALL
-###############################
-'''
-lr = LogisticRegression(maxIter=10, tol=1E-6, fitIntercept=True)
-ovr = OneVsRest(classifier=lr)
-
-pipeline = Pipeline(stages=[labelIndexer, ovr, labelConverter])
-model = pipeline.fit(trainingData)
-predictions = model.transform(testData)
-
-evaluator = MulticlassClassificationEvaluator(
-    labelCol="label", predictionCol="prediction", metricName="accuracy")
-ova_accuracy = evaluator.evaluate(predictions)
-
-print("Random forest accuracy is: " + str(rf_accuracy))
-print("Logistic regression accuracy is: " + str(lr_accuracy))
-print("One vs All accuracy is: " + str(ova_accuracy))
+	evaluator = MulticlassClassificationEvaluator(
+	    labelCol="label_indexed", predictionCol="prediction", metricName="accuracy")
+	rf_accuracy = evaluator.evaluate(predictions)
 
 
-spark.stop()
+	'''
+	###############################
+	MULTINOMIAL LOGISTIC REGRESSION
+	###############################
+	'''
+
+	df = df.select(
+	    df["label"].alias("string_labels"), 
+	    df["vector_features"].alias("features")
+	)
+
+	labelIndexer = StringIndexer(inputCol="string_labels", outputCol="label").fit(df)
+	(trainingData, testData) = df.randomSplit([0.7, 0.3])
+
+	lr = LogisticRegression(maxIter=10, regParam=0.3, elasticNetParam=0.8)
+
+	labelConverter = IndexToString(inputCol="prediction", outputCol="predictedLabel",
+		                       labels=labelIndexer.labels)
+	pipeline = Pipeline(stages=[labelIndexer, lr, labelConverter])
+	lr_model = pipeline.fit(trainingData)
+	predictions = lr_model.transform(testData)
+
+	predictions.show(50)
+
+	evaluator = MulticlassClassificationEvaluator(
+	    labelCol="label", predictionCol="prediction", metricName="accuracy")
+	lr_accuracy = evaluator.evaluate(predictions)
+
+	'''
+	###############################
+	ONE VS ALL
+	###############################
+	'''
+	lr = LogisticRegression(maxIter=10, tol=1E-6, fitIntercept=True)
+	ovr = OneVsRest(classifier=lr)
+
+	pipeline = Pipeline(stages=[labelIndexer, ovr, labelConverter])
+	ova_model = pipeline.fit(trainingData)
+	predictions = ova_model.transform(testData)
+
+	evaluator = MulticlassClassificationEvaluator(
+	    labelCol="label", predictionCol="prediction", metricName="accuracy")
+	ova_accuracy = evaluator.evaluate(predictions)
+
+	print("Random forest accuracy is: " + str(rf_accuracy))
+	print("Logistic regression accuracy is: " + str(lr_accuracy))
+	print("One vs All accuracy is: " + str(ova_accuracy))
+
+
+	spark.stop()
+
+
+if __name__ == "__main__":
+	main()
+
+
 
