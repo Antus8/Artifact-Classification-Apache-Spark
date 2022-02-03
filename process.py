@@ -31,16 +31,16 @@ def main():
 	dataset = []
 
 	for key in npzfile.files:
-	    for feature_vector in npzfile[key]:
-	    	dataset.append({"label" : key, "features" : feature_vector.tolist()})
+		for feature_vector in npzfile[key]:
+			dataset.append({"label" : key, "features" : feature_vector.tolist()})
 
 	df = spark.createDataFrame(dataset)
 	# df.printSchema()
 
 	list_to_vector_udf = udf(lambda l: Vectors.dense(l), VectorUDT())
 	df = df.select(
-	    df["label"], 
-	    list_to_vector_udf(df["features"]).alias("vector_features")
+		df["label"], 
+		list_to_vector_udf(df["features"]).alias("vector_features")
 	)
 
 	'''
@@ -121,11 +121,12 @@ def main():
 	print("One vs All accuracy is: " + str(ova_accuracy))
 	
 	
-	acquire_and_predict(rf_model, lr_model, ova_model)
+	# acquire_and_predict(spark, rf_model, lr_model, ova_model)
+	acquire_and_predict(spark, rf_model, None, None)
 
 	spark.stop()
 
-def acquire_and_predict(rf_model, lr_model, ova_model):
+def acquire_and_predict(spark, rf_model, lr_model, ova_model):
 	camera = cv2.VideoCapture("/home/antonello/Scrivania/Artifact-Classification-Apache-Spark/video.mp4")
 	model = models.resnet18(pretrained=True)
 
@@ -136,7 +137,7 @@ def acquire_and_predict(rf_model, lr_model, ova_model):
 
 	scaler = transforms.Resize((224, 224))
 	normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-		                         std=[0.229, 0.224, 0.225])
+									std=[0.229, 0.224, 0.225])
 	to_tensor = transforms.ToTensor()
 	
 	while True:
@@ -156,27 +157,20 @@ def acquire_and_predict(rf_model, lr_model, ova_model):
 
 		np_arr = img_feature_vector.cpu().detach().numpy()
 		
-		print(np_arr)
+		current = [{"label" : "door", "features" : np_arr.tolist()}]
+		current_img_df = spark.createDataFrame(current)
+
+		list_to_vector_udf = udf(lambda l: Vectors.dense(l), VectorUDT())
+
+		current_img_df = current_img_df.select(
+		current_img_df["label"], 
+		list_to_vector_udf(current_img_df["features"]).alias("vector_features"))
+
+		predictions = rf_model.transform(current_img_df)
+
+		predictions.select("predictedLabel").show()
+
 		time.sleep(10)
-		
-    	
-	
-
-def get_vector(image, normalize, to_tensor, scaler,layer):
-	img = image   
-
-	t_img = Variable(normalize(to_tensor(scaler(img))).unsqueeze(0))
-	img_feature_vector = torch.zeros(512)  # The 'avgpool' layer has an output size of 512, this is an empty vector that will hold features
-
-	def copy_data(m, i, o):
-		img_feature_vector.copy_(o.data.reshape(o.data.size(1)))
-
-	h = layer.register_forward_hook(copy_data)    
-
-	model(t_img)    
-	h.remove() # Detach copy function from the layer
-
-	return img_feature_vector
 	
 
 if __name__ == "__main__":
