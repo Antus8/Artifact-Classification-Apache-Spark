@@ -64,7 +64,7 @@ def main():
 
 	predictions = rf_model.transform(testData)
 
-	predictions.show(50)
+	predictions.show(testData.count())
 
 
 	evaluator = MulticlassClassificationEvaluator(
@@ -157,7 +157,7 @@ def acquire_and_predict(spark, rf_model, lr_model, ova_model):
 
 		np_arr = img_feature_vector.cpu().detach().numpy()
 		
-		current = [{"label" : "door", "features" : np_arr.tolist()}]
+		current = [{"label" : "face", "features" : np_arr.tolist()}]
 		current_img_df = spark.createDataFrame(current)
 
 		list_to_vector_udf = udf(lambda l: Vectors.dense(l), VectorUDT())
@@ -168,9 +168,7 @@ def acquire_and_predict(spark, rf_model, lr_model, ova_model):
 
 		predictions = rf_model.transform(current_img_df)
 
-		predictions.select("predictedLabel").show()
-
-		time.sleep(10)
+		predictions.select("label","label_indexed", "prediction", "predictedLabel").show()
 	
 
 if __name__ == "__main__":
