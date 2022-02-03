@@ -13,3 +13,23 @@ indexed_df = indexer.fit(df).transform(df)
 indexed.show()
 
 IL MODELLO NON ACCETTA ARRAY MA SOLO VECTOR TYPE, QUINDI DOBBIAMO RICONVERTIRE
+
+
+# GRADIENT BOOSTED TREE
+
+Only supports BINARY classification
+
+gbt = GBTClassifier(labelCol="label_indexed", featuresCol="vector_features", maxIter=10)
+pipeline = Pipeline(stages=[labelIndexer, gbt, labelConverter])
+
+model = pipeline.fit(trainingData)
+
+predictions = model.transform(testData)
+
+predictions.show(50)
+
+
+evaluator = MulticlassClassificationEvaluator(
+    labelCol="label_indexed", predictionCol="prediction", metricName="accuracy")
+gbt_accuracy = evaluator.evaluate(predictions)
+'''
