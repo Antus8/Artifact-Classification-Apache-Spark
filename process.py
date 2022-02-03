@@ -2,6 +2,7 @@ import cv2
 import torch
 import glob
 import json
+import time
 import numpy as np
 import pandas as pd
 import torch.nn as nn
@@ -118,10 +119,65 @@ def main():
 	print("Random forest accuracy is: " + str(rf_accuracy))
 	print("Logistic regression accuracy is: " + str(lr_accuracy))
 	print("One vs All accuracy is: " + str(ova_accuracy))
-
+	
+	
+	acquire_and_predict(rf_model, lr_model, ova_model)
 
 	spark.stop()
 
+def acquire_and_predict(rf_model, lr_model, ova_model):
+	camera = cv2.VideoCapture("/home/antonello/Scrivania/Artifact-Classification-Apache-Spark/video.mp4")
+	model = models.resnet18(pretrained=True)
+
+	# Use the model object to select the desired layer
+	layer = model._modules.get('avgpool')
+
+	model.eval()
+
+	scaler = transforms.Resize((224, 224))
+	normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+		                         std=[0.229, 0.224, 0.225])
+	to_tensor = transforms.ToTensor()
+	
+	while True:
+		_, image = camera.read()
+		img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+		im_pil = Image.fromarray(img)
+		img = im_pil
+		t_img = Variable(normalize(to_tensor(scaler(img))).unsqueeze(0))
+		img_feature_vector = torch.zeros(512)
+		
+		def copy_data(m, i, o):
+			img_feature_vector.copy_(o.data.reshape(o.data.size(1)))
+		
+		h = layer.register_forward_hook(copy_data) 
+		model(t_img)    
+		h.remove()
+
+		np_arr = img_feature_vector.cpu().detach().numpy()
+		
+		print(np_arr)
+		time.sleep(10)
+		
+    	
+	
+
+def get_vector(image, normalize, to_tensor, scaler,layer):
+	img = image   
+
+	t_img = Variable(normalize(to_tensor(scaler(img))).unsqueeze(0))
+	img_feature_vector = torch.zeros(512)  # The 'avgpool' layer has an output size of 512, this is an empty vector that will hold features
+
+	def copy_data(m, i, o):
+		img_feature_vector.copy_(o.data.reshape(o.data.size(1)))
+
+	h = layer.register_forward_hook(copy_data)    
+
+	model(t_img)    
+	h.remove() # Detach copy function from the layer
+
+	return img_feature_vector
+	
 
 if __name__ == "__main__":
 	main()
