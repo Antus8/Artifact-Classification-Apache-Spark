@@ -127,7 +127,8 @@ def main():
 	spark.stop()
 
 def acquire_and_predict(spark, rf_model, lr_model, ova_model):
-	camera = cv2.VideoCapture("/home/antonello/Scrivania/Artifact-Classification-Apache-Spark/video.mp4")
+	#camera = cv2.VideoCapture("/home/antonello/Scrivania/Artifact-Classification-Apache-Spark/door.mp4")
+	camera = cv2.VideoCapture("/home/antonello/Scrivania/Artifact-Classification-Apache-Spark/anto.mp4")
 	model = models.resnet18(pretrained=True)
 
 	# Use the model object to select the desired layer
@@ -142,6 +143,11 @@ def acquire_and_predict(spark, rf_model, lr_model, ova_model):
 	
 	while True:
 		_, image = camera.read()
+		
+		#cv2.imshow("image", image)
+		
+		#cv2.waitKey(0) 
+		
 		img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 		im_pil = Image.fromarray(img)
 		img = im_pil
@@ -168,7 +174,9 @@ def acquire_and_predict(spark, rf_model, lr_model, ova_model):
 
 		predictions = rf_model.transform(current_img_df)
 
-		predictions.select("label","label_indexed", "prediction", "predictedLabel").show()
+		predictions.select("prediction", "predictedLabel").show()
+		
+	#cv2.destroyAllWindows() 
 	
 
 if __name__ == "__main__":
