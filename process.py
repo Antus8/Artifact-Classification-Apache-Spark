@@ -5,9 +5,11 @@ import json
 import time
 import numpy as np
 import pandas as pd
+import seaborn as sn
 import torch.nn as nn
 from PIL import Image
 from pyspark.ml import Pipeline
+import matplotlib.pyplot as plt
 import torchvision.models as models
 from torch.autograd import Variable
 from pyspark.sql import SparkSession
@@ -65,7 +67,8 @@ def main():
 	predictions = rf_model.transform(testData)
 
 	predictions.show(testData.count())
-
+	
+	cm_rf = get_confusion_matrix_rf(predictions)
 
 	evaluator = MulticlassClassificationEvaluator(
 	    labelCol="label_indexed", predictionCol="prediction", metricName="accuracy")
@@ -95,6 +98,8 @@ def main():
 	predictions = lr_model.transform(testData)
 
 	predictions.show(50)
+	
+	cm_lr = get_confusion_matrix_lr(predictions)
 
 	evaluator = MulticlassClassificationEvaluator(
 	    labelCol="label", predictionCol="prediction", metricName="accuracy")
@@ -111,6 +116,8 @@ def main():
 	pipeline = Pipeline(stages=[labelIndexer, ovr, labelConverter])
 	ova_model = pipeline.fit(trainingData)
 	predictions = ova_model.transform(testData)
+	
+	cm_ova = get_confusion_matrix_lr(predictions)
 
 	evaluator = MulticlassClassificationEvaluator(
 	    labelCol="label", predictionCol="prediction", metricName="accuracy")
@@ -120,9 +127,17 @@ def main():
 	print("Logistic regression accuracy is: " + str(lr_accuracy))
 	print("One vs All accuracy is: " + str(ova_accuracy))
 	
+	sn.heatmap(cm_rf, annot=True)
+	plt.show()
+	sn.heatmap(cm_lr, annot=True)
+	plt.show()
+	sn.heatmap(cm_ova, annot=True)
+	plt.show()
+	
+	
 	
 	# acquire_and_predict(spark, rf_model, lr_model, ova_model)
-	acquire_and_predict(spark, rf_model, None, None)
+	#acquire_and_predict(spark, rf_model, None, None)
 
 	spark.stop()
 
@@ -177,6 +192,24 @@ def acquire_and_predict(spark, rf_model, lr_model, ova_model):
 		predictions.select("prediction", "predictedLabel").show()
 		
 	#cv2.destroyAllWindows() 
+	
+	
+def get_confusion_matrix_rf(df):
+	
+	pandasDF = df.toPandas()
+	confusion_matrix = pd.crosstab(pandasDF['label_indexed'], pandasDF['prediction'], rownames=['Actual'], colnames=['Predicted'], margins = True)
+	return confusion_matrix
+
+	# sn.heatmap(confusion_matrix, annot=True)
+	# plt.show()
+	
+	
+def get_confusion_matrix_lr(df):
+
+	pandasDF = df.toPandas()
+	confusion_matrix = pd.crosstab(pandasDF['label'], pandasDF['prediction'], rownames=['Actual'], colnames=['Predicted'], margins = True)
+	return confusion_matrix
+
 	
 
 if __name__ == "__main__":
